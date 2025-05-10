@@ -1,108 +1,134 @@
 import os
-import pyupbit
+import time
 import json
+import pyupbit
+import pandas as pd
 from dotenv import load_dotenv
+from ta.utils import dropna
+from ta.momentum import RSIIndicator
+from ta.trend import MACD
+from ta.volatility import BollingerBands
+from openai import OpenAI
+
 load_dotenv()
 
+def get_chart_with_indicators():
+    # 일봉
+    df_day = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=30)
+    df_day = dropna(df_day)
+
+    rsi_day = RSIIndicator(close=df_day["close"])
+    df_day["rsi"] = rsi_day.rsi()
+
+    macd_day = MACD(close=df_day["close"])
+    df_day["macd"] = macd_day.macd()
+    df_day["macd_signal"] = macd_day.macd_signal()
+    df_day["macd_diff"] = macd_day.macd_diff()
+
+    bb_day = BollingerBands(close=df_day["close"])
+    df_day["bb_bbm"] = bb_day.bollinger_mavg()
+    df_day["bb_bbh"] = bb_day.bollinger_hband()
+    df_day["bb_bbl"] = bb_day.bollinger_lband()
+
+    # 시간봉
+    df_hour = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=24)
+    df_hour = dropna(df_hour)
+
+    rsi_hour = RSIIndicator(close=df_hour["close"])
+    df_hour["rsi"] = rsi_hour.rsi()
+
+    macd_hour = MACD(close=df_hour["close"])
+    df_hour["macd"] = macd_hour.macd()
+    df_hour["macd_signal"] = macd_hour.macd_signal()
+    df_hour["macd_diff"] = macd_hour.macd_diff()
+
+    bb_hour = BollingerBands(close=df_hour["close"])
+    df_hour["bb_bbm"] = bb_hour.bollinger_mavg()
+    df_hour["bb_bbh"] = bb_hour.bollinger_hband()
+    df_hour["bb_bbl"] = bb_hour.bollinger_lband()
+
+    # 최근 10개만 전송용으로 준비
+    return {
+        "day_chart": df_day.tail(10).to_dict(orient="records"),
+        "hour_chart": df_hour.tail(10).to_dict(orient="records")
+    }
+
 def ai_trade():
-    # 1. 업비트 차트 가져오기 (30일 일봉)
-    df_30d = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=30)
-    print("최근 30일 일봉 차트 데이터:")
-    print(df_30d.tail())
+    # 1. 차트 + 보조지표 데이터 구성
+    chart_data = get_chart_with_indicators()
 
-    # 2. 24시간 시간봉 차트 가져오기
-    df_24h = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=24)
-    print("최근 24시간 시간봉 차트 데이터:")
-    print(df_24h.tail())
+    # 2. AI 판단 요청
+    client = OpenAI()
+    response = client.responses.create(
+        model="gpt-4.1",
+        input=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "You are a bitcoin trading advisor. Based on the following candlestick charts and technical indicators (RSI, MACD, Bollinger Bands), "
+                            "decide whether to 'buy', 'sell', or 'hold'. Return JSON only like:\n"
+                            "{\"decision\": \"buy\", \"reason\": \"...\"}"
+                        )
+                    }
+                ]
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": json.dumps(chart_data)
+                    }
+                ]
+            }
+        ],
+        text={"format": {"type": "json_object"}},
+        reasoning={},
+        tools=[],
+        temperature=1,
+        max_output_tokens=2048,
+        top_p=1,
+        store=True
+    )
 
-    # 3. 현재 투자 상태 조회
-    access = os.getenv("UPBIT_ACCESS_KEY")          # 본인 값으로 변경
-    secret = os.getenv("UPBIT_SECRET_KEY")          # 본인 값으로 변경
+    result = json.loads(response.output[0].content[0].text)
+    print("### AI 판단:", result["decision"].upper(), "###")
+    print("사유:", result["reason"])
+
+    # 3. 자동매매
+    access = os.getenv("UPBIT_ACCESS_KEY")
+    secret = os.getenv("UPBIT_SECRET_KEY")
     upbit = pyupbit.Upbit(access, secret)
 
-    krw_balance = upbit.get_balance("KRW")  # 원화 잔고
-    btc_balance = upbit.get_balance("KRW-BTC")  # BTC 보유량
+    if result["decision"] == "buy":
+        krw = upbit.get_balance("KRW")
+        if krw * 0.9995 > 5000:
+            print("🟢 매수 실행")
+            res = upbit.buy_market_order("KRW-BTC", krw * 0.9995)
+            print(res)
+        else:
+            print("⚠️ 잔고 부족 (5000원 이하)")
 
-    print(f"현재 KRW 잔고: {krw_balance}")
-    print(f"현재 BTC 보유량: {btc_balance}")
+    elif result["decision"] == "sell":
+        btc = upbit.get_balance("KRW-BTC")
+        ask_price = pyupbit.get_orderbook("KRW-BTC")["orderbook_units"][0]["ask_price"]
+        if btc * ask_price > 5000:
+            print("🔴 매도 실행")
+            res = upbit.sell_market_order("KRW-BTC", btc)
+            print(res)
+        else:
+            print("⚠️ 보유 코인 부족 (가치 5000원 이하)")
 
-    # 4. 오더북 (호가 데이터) 조회
-    orderbook = pyupbit.get_orderbook(ticker="KRW-BTC")
-    ask_price = orderbook['orderbook_units'][0]['ask_price']  # 최우선 매도 호가
-    bid_price = orderbook['orderbook_units'][0]['bid_price']  # 최우선 매수 호가
+    elif result["decision"] == "hold":
+        print("🟡 보유 상태 유지")
 
-    print(f"최우선 매도 호가: {ask_price}")
-    print(f"최우선 매수 호가: {bid_price}")
-
-    # # 5. AI에게 차트 주고 투자 판단 받기 (buy, sell, hold)
-    # from openai import OpenAI
-    # client = OpenAI()
-
-    # response = client.responses.create(
-    #     model="gpt-4.1",
-    #     input=[{
-    #         "role": "system",
-    #         "content": [
-    #             {
-    #                 "type": "input_text",
-    #                 "text": "You are the ultimate Bitcoin investing expert. Tell me whether to buy, sell, or hold at the moment based on the chart data provided. response in json format\n\nResponse Example:\n{\"decision\": \"buy\",  \"reason\": \"some technical reason\"}\n{\"decision\": \"sell\",  \"reason\": \"some technical reason\"}\n{\"decision\": \"hold\",  \"reason\": \"some technical reason\"}"
-    #             }
-    #         ]
-    #     },
-    #     {
-    #         "role": "user",
-    #         "content": [
-    #             {
-    #                 "type": "input_text",
-    #                 "text": df_30d.to_json()      # 실제데이터를 JSON데이터로 받아와 GPT가 판단을 하는 코드
-    #             }
-    #         ]
-    #     }],
-    #     text={
-    #         "format": {
-    #             "type": "json_object"
-    #         }
-    #     },
-    #     reasoning={},
-    #     tools=[],
-    #     temperature=1,
-    #     max_output_tokens=2048,
-    #     top_p=1,
-    #     store=True
-    # )
-
-    # # 6. 결과 파싱 및 자동매매
-    # result = response.output[0].content[0].text
-    # result = json.loads(result)
-
-    # print("### AI Decision: ", result["decision"].upper(), "###")
-    # print(f"### Reason: {result['reason']} ###")
-
-    # if result["decision"] == "buy":
-    #     # 매수
-    #     my_balance = upbit.get_balance("KRW")
-    #     if my_balance * 0.9995 > 5000:
-    #         print("### Buy Order Executed ###")
-    #         print(upbit.buy_market_order("KRW-BTC", my_balance * 0.9995))
-    #         print("buy:", result["reason"])
-    #     else:
-    #         print("잔고가 5000원 미만입니다. ")
-    # elif result["decision"] == "sell":
-    #     # 매도
-    #     my_coin = upbit.get_balance("KRW-BTC")
-    #     current_price = pyupbit.get_orderbook(ticker="KRW-BTC")["orderbook_units"][0]["ask_price"]
-
-    #     if my_coin * current_price > 5000:
-    #         print("### Sell Order Executed ###")
-    #         print(upbit.sell_market_order("KRW-BTC"))
-    #         print("sell", result["reason"])
-    #     else:
-    #         print("보유 코인이 5000원 미만입니다. ")
-    # elif result["decision"] == "hold":
-    #     # 지나감
-    #     print("hold: ", result["reason"])
-
-# while True:
-#     import time
-#     time.sleep(60)
-ai_trade()
+if __name__ == "__main__":
+    while True:
+        try:
+            ai_trade()
+        except Exception as e:
+            print("⚠️ 예외 발생:", e)
+        time.sleep(60)
