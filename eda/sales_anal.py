@@ -63,7 +63,7 @@ class sales_analyze:
         
         # 저장
         plt.savefig("img/all_stores_trend.png", dpi=300, bbox_inches='tight')
-        plt.show()
+        #plt.show()
 
     def analyzed_Dept(train_final_data):
         # 데이터 준비
@@ -124,7 +124,7 @@ class sales_analyze:
         
         # 저장
         plt.savefig("img/all_depts_trend.png", dpi=300, bbox_inches='tight')
-        plt.show()
+        #plt.show()
 
     
     def analyzed_Store_Dept(train_final_data, top_n=5):
