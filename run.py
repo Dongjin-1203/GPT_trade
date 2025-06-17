@@ -135,7 +135,8 @@ if __name__ == "__main__":
 
                 # Machine Learing
                 time_series = Time_series(train_final_data)
-                time_series.arima()
+                # time_series.arima(forecast_steps=12)
+                time_series.sarima(forecast_steps=12)
 
             elif modeling == 'n' or modeling == 'N' or modeling == 'ㅜ':
                 print("모델 평가부터 시작하겠습니다.")
