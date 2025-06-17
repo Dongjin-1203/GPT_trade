@@ -1,21 +1,31 @@
+import os
+import platform
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import seaborn as sns
-import os
-import platform
-
 
 # 운영체제별 폰트 경로 설정
 if platform.system() == 'Windows':
-    font_path = 'C:/Windows/Fonts/malgun.ttf'  # 맑은 고딕
+    font_path = 'C:/Windows/Fonts/malgun.ttf'
+else:
+    font_path = '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'
+
+# 기본값 지정
+font_path = font_path if os.path.exists(font_path) else None
 
 # 폰트 적용
-font_name = fm.FontProperties(fname=font_path).get_name()
-plt.rc('font', family=font_name)
+if font_path:
+    font_name = fm.FontProperties(fname=font_path).get_name()
+    plt.rc('font', family=font_name)
+else:
+    print("⚠️ 지정한 폰트를 찾을 수 없습니다.")
 
 # 마이너스 기호 깨짐 방지
 plt.rcParams['axes.unicode_minus'] = False
+
+
+
 
 class type_size:
     
