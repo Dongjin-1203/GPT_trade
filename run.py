@@ -5,6 +5,7 @@ from etl.train_dataset import train_dataset
 from feature_engineering.Concat import Concat
 from eda.sales_anal import sales_analyze
 from eda.type_size import type_size
+from eda.markdown import markdown
 
 if __name__ == "__main__":
     print("모듈을 성공적으로 불러왔습니다.")
@@ -65,12 +66,22 @@ if __name__ == "__main__":
         # 코너별, 매장별 매출 분석(경우의수가 약 3600개 이상인 관계로 상위 데이터만 확인)
         #sales_analyze.analyzed_Store_Dept(train_final_data, top_n=5)
 
+        # Type, Size vs Weekly_Sales
         type_size = type_size(train_final_data)
 
         type_size.analyze_by_type()
         type_size.analyze_by_size()
         type_size.boxplot_by_type()
         type_size.summarize()
+
+        # MarkDown Correlations
+        markdown = markdown(train_final_data)
+
+        markdown.analyze_markdown()
+        markdown.analyze_markdown_by_type()
+        markdown.analyze_markdown_by_dept()
+        markdown.analyze_markdown_by_size()
+        markdown.analyze_markdown_by_store()
     
     else:
         print("올바른 값을 입력하세요. ")
