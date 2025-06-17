@@ -16,5 +16,7 @@ if __name__ == "__main__":
     print(data['Store'].value_counts)   # 매장 번호 확인 코드
 
     """
-    
+    # 매장별 데이터 분리
     dataset.seperate_store(data)
+    # 매장 내 코너별 데이터 분리
+    dataset.seperate_dept()
