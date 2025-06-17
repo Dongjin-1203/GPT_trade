@@ -2,14 +2,14 @@ import pandas as pd
 import os
 import glob
 
-output_dir1 = "data/sorted_store"
-output_dir2 = "data/sorted_dept"
-dept_path = "data/sorted_store_dept"
+output_dir1 = "data/train/sorted_store"
+output_dir2 = "data/train/sorted_dept"
+dept_path = "data/train/sorted_store_dept"
 os.makedirs(output_dir1, exist_ok=True)  # 폴더 없으면 생성
 os.makedirs(output_dir2, exist_ok=True)
 os.makedirs(dept_path, exist_ok=True)
 
-class dataset():
+class train_dataset():
     # 매장 번호별 데이터 저장
     def seperate_store(data):
 
@@ -50,7 +50,7 @@ class dataset():
             for dept in dept_groups:
                 dept_store_data = sorted_data[sorted_data['Dept'] == dept]
 
-                result_path = f"data/sorted_store_dept/store_{store_id}"
+                result_path = f"data/train/sorted_store_dept/store_{store_id}"
                 os.makedirs(result_path, exist_ok=True)  # 폴더 없으면 생성
 
                 file_path = os.path.join(result_path, f'store_{store_id}_dept_{dept}.csv')
