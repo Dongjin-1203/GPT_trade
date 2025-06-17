@@ -1,4 +1,6 @@
 pandas
-os
 matplotlib
 seaborn
+statsmodels 
+pmdarima
+sklearn
