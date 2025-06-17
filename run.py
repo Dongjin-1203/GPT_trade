@@ -18,5 +18,7 @@ if __name__ == "__main__":
     """
     # 매장별 데이터 분리
     dataset.seperate_store(data)
+    # 코너별 데이터 분리
+    dataset.seperate_dept(data)
     # 매장 내 코너별 데이터 분리
-    dataset.seperate_dept()
+    dataset.seperate_store_dept()
