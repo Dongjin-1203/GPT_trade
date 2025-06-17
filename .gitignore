@@ -1,0 +1,15 @@
+# 데이터 파일(README.md 참조)
+data/
+
+# 캐시파일
+etl/__pycache__/
+etl/feature_engineering/__pycache__/
+run/__pycache__/
+model/__pycache__/
+visual/__pycache__/
+*.pyc
+
+# 로그/데이터 파일
+*.log
+*.csv
+*.db
