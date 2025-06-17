@@ -7,6 +7,8 @@ from eda.sales_anal import sales_analyze
 from eda.type_size import type_size
 from eda.markdown import markdown
 from model.arima import Time_series
+from model.Sarimax import multivar
+from model.Xgboost import XGBoostForecast
 
 if __name__ == "__main__":
     print("모듈을 성공적으로 불러왔습니다.")
@@ -136,7 +138,15 @@ if __name__ == "__main__":
                 # Machine Learing
                 time_series = Time_series(train_final_data)
                 # time_series.arima(forecast_steps=12)
-                time_series.sarima(forecast_steps=12)
+                # time_series.sarima(forecast_steps=12)
+
+                # SARIMAX
+                multi = multivar(train_final_data, forecast_steps=12)
+                # multi.sarimax()
+
+                # XGBOOST
+                xgb_model = XGBoostForecast(train_final_data, forecast_lags=3)
+                xgb_model.train_predict()
 
             elif modeling == 'n' or modeling == 'N' or modeling == 'ㅜ':
                 print("모델 평가부터 시작하겠습니다.")

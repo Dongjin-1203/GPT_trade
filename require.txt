@@ -3,4 +3,5 @@ matplotlib
 seaborn
 statsmodels 
 pmdarima
-sklearn
+scikit-learn
+xgboost
