@@ -1,6 +1,9 @@
 # 데이터 파일(README.md 참조)
 data/
 
+# 분석 이미지 파일
+img/
+
 # 캐시파일
 etl/__pycache__/
 etl/feature_engineering/__pycache__/
