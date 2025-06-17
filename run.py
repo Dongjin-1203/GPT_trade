@@ -3,153 +3,102 @@ import pandas as pd
 from etl.test_dataset import test_dataset
 from etl.train_dataset import train_dataset
 from feature_engineering.Concat import Concat
-from eda.sales_anal import sales_analyze
+from eda.sales_analyze import sales_analyze
 from eda.type_size import type_size
 from eda.markdown import markdown
 from model.arima import Time_series
 from model.Sarimax import multivar
 from model.Xgboost import XGBoostForecast
+from model.lightgbm import LightGBMForecast
+from evaluation.rmse_mea import MultiModelEvaluator
+from predictor.xgboost_predictor import predict_xgboost
+from predictor.sarimax_predictor import predict_sarimax
+from predictor.lightgbm_predictor import predict_lightgbm
+
+def load_final_data():
+    train_final_data = pd.read_csv('data/train_final.csv')
+    test_final_data = pd.read_csv('data/test_final.csv')
+    return train_final_data, test_final_data
+
+def run_preprocessing():
+    train_data = pd.read_csv('data/train.csv')
+    test_data = pd.read_csv('data/test.csv')
+    Concat.feature_plus_store()
+    Concat.concat_data(train_data, test_data)
+    train_dataset.seperate_store(train_data)
+    test_dataset.seperate_store(test_data)
+    train_dataset.seperate_dept(train_data)
+    test_dataset.seperate_dept(test_data)
+    train_dataset.seperate_store_dept()
+    test_dataset.seperate_store_dept()
+
+def run_eda(train_final_data):
+    sales_analyze.analyzed_Store(train_final_data)
+    sales_analyze.plot_all_stores(train_final_data)
+    sales_analyze.analyzed_Dept(train_final_data)
+    sales_analyze.plot_all_deptes(train_final_data)
+    sales_analyze.analyzed_Store_Dept(train_final_data, top_n=5)
+
+    ts = type_size(train_final_data)
+    ts.analyze_by_type()
+    ts.analyze_by_size()
+    ts.boxplot_by_type()
+    ts.summarize()
+
+    md = markdown(train_final_data)
+    md.analyze_markdown()
+    md.analyze_markdown_by_type()
+    md.analyze_markdown_by_dept()
+    md.analyze_markdown_by_size()
+    md.analyze_markdown_by_store()
+
+def run_modeling(train_final_data, test_final_data):
+    Time_series(train_final_data).arima()
+    Time_series(train_final_data).sarima()
+    multivar(train_final_data).sarimax()
+    XGBoostForecast(train_final_data).train_predict()
+    LightGBMForecast(train_df=train_final_data, test_df=test_final_data).train_and_predict()
+
+def run_evaluation(train_final_data):
+    model_dirs = {
+        'ARIMA': 'model/(Auto)ARIMA',
+        'SARIMA': 'model/SARIMA',
+        'XGBoost': 'model/XGBoost',
+        'LightGBM': 'model/LightGBM'
+    }
+    evaluator = MultiModelEvaluator(train_final_data, model_dirs)
+    result_df = evaluator.evaluate_models()
+    result_df.to_csv("model/all_model_evaluation.csv", index=False)
+    print(result_df.sort_values(by="RMSE").head(10))
+
+def run_forecasting(train_final_data, test_final_data):
+    for store in train_final_data['Store'].unique():
+        for dept in train_final_data[train_final_data['Store'] == store]['Dept'].unique():
+            predict_xgboost(train_final_data, test_final_data, store, dept)
+            predict_sarimax(train_final_data, test_final_data, store, dept)
+            predict_lightgbm(train_final_data, test_final_data, store, dept)
 
 if __name__ == "__main__":
     print("모듈을 성공적으로 불러왔습니다.")
-    
-    preprocess = input("전처리부터 시작 하시겠습니까?(y/n) :")
-    if preprocess == 'y' or preprocess == 'Y' or preprocess == 'ㅛ':
-        ##### 전처리 #####
 
-        # 데이터 불러오기
-        train_path = 'data/train.csv'
-        train_data = pd.read_csv(train_path)
-        test_path = 'data/test.csv'
-        test_data = pd.read_csv(test_path)
+    mode = input("실행 모드 선택: preprocess / eda / model / evaluate / forecast : ").strip().lower()
 
-        # 데이터 확인(주석처리 가능)
-        """
-        print(data.head())
-        print(data.info())
+    if mode == 'preprocess':
+        run_preprocessing()
 
-        print(data['Store'].value_counts)   # 매장 번호 확인 코드
+    train_final_data, test_final_data = load_final_data()
 
-        """
+    if mode == 'eda':
+        run_eda(train_final_data)
 
-        # 특성 합치기
-        Concat.feature_plus_store()
-        # 분석용 데이터셋 작성
-        Concat.concat_data(train_data, test_data)
+    elif mode == 'model':
+        run_modeling(train_final_data, test_final_data)
 
-        train_final_path = 'data/train_final.csv'
-        train_final_data = pd.read_csv(train_final_path)
-        test_final_path = 'data/test_final.csv'
-        test_final_data = pd.read_csv(test_final_path)
-        
-        # 매장별 데이터 분리
-        train_dataset.seperate_store(train_final_data)
-        test_dataset.seperate_store(test_final_data)
-        # 코너별 데이터 분리
-        train_dataset.seperate_dept(train_final_data)
-        test_dataset.seperate_dept(test_final_data)
-        # 매장 내 코너별 데이터 분리
-        train_dataset.seperate_store_dept()
-        test_dataset.seperate_store_dept()
+    elif mode == 'evaluate':
+        run_evaluation(train_final_data)
 
-        ##### EDA #####
+    elif mode == 'forecast':
+        run_forecasting(train_final_data, test_final_data)
 
-        # 전체 매장 개별 분석
-        sales_analyze.analyzed_Store(train_final_data)
-        # 한개 그래프로 통합(전체 매장에 대해서: store_ids=None, 특정 매장에 대해서: store_ids=[1, 2, 3])
-        sales_analyze.plot_all_stores(train_final_data, store_ids=None)
-        # 전체 코너 개별 분석
-        sales_analyze.analyzed_Dept(train_final_data)
-        # 한개 그래프로 통합(전체 코너에 대해서: dept_ids=None, 특정 코너에 대해서: dept_ids=[1, 2, 3])
-        sales_analyze.plot_all_deptes(train_final_data, dept_ids=None)
-        # 코너별, 매장별 매출 분석(경우의수가 약 3600개 이상인 관계로 상위 데이터만 확인)
-        sales_analyze.analyzed_Store_Dept(train_final_data, top_n=5)
-
-        # Type, Size vs Weekly_Sales
-        type_size = type_size(train_final_data)
-
-        type_size.analyze_by_type()
-        type_size.analyze_by_size()
-        type_size.boxplot_by_type()
-        type_size.summarize()
-
-        # MarkDown Correlations
-        markdown = markdown(train_final_data)
-
-        markdown.analyze_markdown()
-        markdown.analyze_markdown_by_type()
-        markdown.analyze_markdown_by_dept()
-        markdown.analyze_markdown_by_size()
-        markdown.analyze_markdown_by_store()
-
-        # Machine Learing
-        time_series = Time_series(train_final_data)
-        time_series.arima()
-
-    elif preprocess == 'n' or preprocess == 'N' or preprocess == 'ㅜ':
-        eda = input("EDA부터 시작 하시겠습니까?(y/n) :")
-        if eda == 'y' or eda == 'Y' or eda == 'ㅛ':
-            print("EDA부터 시작하겠습니다.")
-
-            train_final_path = 'data/train_final.csv'
-            train_final_data = pd.read_csv(train_final_path)
-            test_final_path = 'data/test_final.csv'
-            test_final_data = pd.read_csv(test_final_path)
-
-            # 전체 매장 개별 분석
-            sales_analyze.analyzed_Store(train_final_data)
-            # 한개 그래프로 통합(전체 매장에 대해서: store_ids=None, 특정 매장에 대해서: store_ids=[1, 2, 3])
-            sales_analyze.plot_all_stores(train_final_data, store_ids=None)
-            # 전체 코너 개별 분석
-            sales_analyze.analyzed_Dept(train_final_data)
-            # 한개 그래프로 통합(전체 코너에 대해서: dept_ids=None, 특정 코너에 대해서: dept_ids=[1, 2, 3])
-            sales_analyze.plot_all_deptes(train_final_data, dept_ids=None)
-            # 코너별, 매장별 매출 분석(경우의수가 약 3600개 이상인 관계로 상위 데이터만 확인)
-            sales_analyze.analyzed_Store_Dept(train_final_data, top_n=5)
-
-            # Type, Size vs Weekly_Sales
-            type_size = type_size(train_final_data)
-
-            type_size.analyze_by_type()
-            type_size.analyze_by_size()
-            type_size.boxplot_by_type()
-            type_size.summarize()
-
-            # MarkDown Correlations
-            markdown = markdown(train_final_data)
-
-            markdown.analyze_markdown()
-            markdown.analyze_markdown_by_type()
-            markdown.analyze_markdown_by_dept()
-            markdown.analyze_markdown_by_size()
-            markdown.analyze_markdown_by_store()
-
-            # Machine Learing
-            time_series = Time_series(train_final_data)
-            time_series.arima()
-        elif eda == 'n' or eda == 'N' or eda == 'ㅜ':
-            modeling = input("모델 학습부터 시작 하시겠습니까?(y/n) :")
-            if modeling == 'y' or modeling == 'Y' or modeling == 'ㅛ':
-                print("모델 학습부터 시작하겠습니다.")
-
-                train_final_path = 'data/train_final.csv'
-                train_final_data = pd.read_csv(train_final_path)
-
-                # Machine Learing
-                time_series = Time_series(train_final_data)
-                # time_series.arima(forecast_steps=12)
-                # time_series.sarima(forecast_steps=12)
-
-                # SARIMAX
-                multi = multivar(train_final_data, forecast_steps=12)
-                # multi.sarimax()
-
-                # XGBOOST
-                xgb_model = XGBoostForecast(train_final_data, forecast_lags=3)
-                xgb_model.train_predict()
-
-            elif modeling == 'n' or modeling == 'N' or modeling == 'ㅜ':
-                print("모델 평가부터 시작하겠습니다.")
-    
     else:
-        print("올바른 값을 입력하세요. ")
+        print("올바른 모드를 선택해주세요.")
