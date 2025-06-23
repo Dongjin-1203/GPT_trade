@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from pmdarima import auto_arima
-import numpy as np
 import os
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
