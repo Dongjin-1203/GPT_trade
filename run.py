@@ -7,13 +7,9 @@ from eda.sales_analyze import sales_analyze
 from eda.type_size import type_size
 from eda.markdown import markdown
 from model.arima import Time_series
-from model.Sarimax import multivar
+from model.Sarimax import SARIMAX_model
 from model.Xgboost import XGBoostForecast
 from model.lightgbm import LightGBMForecast
-from evaluation.rmse_mea import MultiModelEvaluator
-from predictor.xgboost_predictor import predict_xgboost
-from predictor.sarimax_predictor import predict_sarimax
-from predictor.lightgbm_predictor import predict_lightgbm
 
 def load_final_data():
     train_final_data = pd.read_csv('data/train_final.csv')
@@ -55,33 +51,14 @@ def run_eda(train_final_data):
 def run_modeling(train_final_data, test_final_data):
     Time_series(train_final_data).arima()
     Time_series(train_final_data).sarima()
-    multivar(train_final_data).sarimax()
+    SARIMAX_model(train_final_data).sarimax()
     XGBoostForecast(train_final_data).train_predict()
-    LightGBMForecast(train_df=train_final_data, test_df=test_final_data).train_and_predict()
-
-def run_evaluation(train_final_data):
-    model_dirs = {
-        'ARIMA': 'model/(Auto)ARIMA',
-        'SARIMA': 'model/SARIMA',
-        'XGBoost': 'model/XGBoost',
-        'LightGBM': 'model/LightGBM'
-    }
-    evaluator = MultiModelEvaluator(train_final_data, model_dirs)
-    result_df = evaluator.evaluate_models()
-    result_df.to_csv("model/all_model_evaluation.csv", index=False)
-    print(result_df.sort_values(by="RMSE").head(10))
-
-def run_forecasting(train_final_data, test_final_data):
-    for store in train_final_data['Store'].unique():
-        for dept in train_final_data[train_final_data['Store'] == store]['Dept'].unique():
-            predict_xgboost(train_final_data, test_final_data, store, dept)
-            predict_sarimax(train_final_data, test_final_data, store, dept)
-            predict_lightgbm(train_final_data, test_final_data, store, dept)
+    LightGBMForecast(train_df=train_final_data, test_df=test_final_data).lightgbm()
 
 if __name__ == "__main__":
     print("모듈을 성공적으로 불러왔습니다.")
 
-    mode = input("실행 모드 선택: preprocess / eda / model / evaluate / forecast : ").strip().lower()
+    mode = input("실행 모드 선택: preprocess / eda / model : ").strip().lower()
 
     if mode == 'preprocess':
         run_preprocessing()
@@ -93,12 +70,6 @@ if __name__ == "__main__":
 
     elif mode == 'model':
         run_modeling(train_final_data, test_final_data)
-
-    elif mode == 'evaluate':
-        run_evaluation(train_final_data)
-
-    elif mode == 'forecast':
-        run_forecasting(train_final_data, test_final_data)
 
     else:
         print("올바른 모드를 선택해주세요.")

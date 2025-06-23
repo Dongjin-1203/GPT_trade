@@ -6,13 +6,14 @@ from sklearn.model_selection import train_test_split
 import os
 import matplotlib.pyplot as plt
 
+os.makedirs("model/XGBoost", exist_ok=True)
 class XGBoostForecast:
     def __init__(self, train_final_data: pd.DataFrame, forecast_lags: int = 3):
         self.df = train_final_data.copy()
         self.df['Date'] = pd.to_datetime(self.df['Date'])
         self.lags = forecast_lags
-        os.makedirs("model/XGBoost", exist_ok=True)
 
+    """
     def create_features(self, df):
         df = df.copy()
         df = df.sort_values('Date')
@@ -29,17 +30,19 @@ class XGBoostForecast:
 
         df = df.dropna()
         return df
+    """
 
     def train_predict(self):
         for (store_id, dept_id), group in self.df.groupby(['Store', 'Dept']):
+            # 데이터셋 제한(겟수 50개 이상)
             if group.shape[0] < 50:
                 print(f"Skipping Store {store_id}, Dept {dept_id} due to insufficient data")
                 continue
 
-            data = self.create_features(group)
+            data = self.df
 
-            X = data[['Week', 'Month', 'Year', 'DayOfWeek'] + [f'lag_{i}' for i in range(1, self.lags + 1)] +
-                     ['Temperature', 'Fuel_Price', 'CPI', 'Unemployment', 'IsHoliday_x', 'IsHoliday_y']]
+            # 독립/종속 변수 선언
+            X = data[['Temperature', 'Fuel_Price', 'CPI', 'Unemployment', 'IsHoliday_x', 'IsHoliday_y']]
             y = data['Weekly_Sales']
 
             try:
