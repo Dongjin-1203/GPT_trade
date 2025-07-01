@@ -63,8 +63,6 @@ Time_series_Practice/
 
 ## 🚀 실행 방법
 ```bash
-복사
-편집
 # 1. 프로젝트 클론
 git clone https://github.com/Dongjin-1203/Time_series_Practice.git
 cd Time_series_Practice
